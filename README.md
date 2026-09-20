@@ -26,7 +26,7 @@ The user enters their **location**, **business idea**, **own capital**, **monthl
 4. **Generates an advisory dossier:** a viability verdict, local demand, SWOT, risk factors and stress test, a 90-day launch roadmap, and next steps.
 5. **Answers follow-up questions** in an advisory chat (Mudra sanction, DIC endorsement, subsidy release, and so on).
 
-> The live sizing preview in the form is a quick estimate. The final figures come from the Spring Boot engine when you press **Calculate Eligibility**.
+> The live sizing preview uses the same rules as the Spring Boot engine, so it matches the final result.
 
 ## Architecture
 
