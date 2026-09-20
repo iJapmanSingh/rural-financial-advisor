@@ -2,6 +2,7 @@ package com.example.hackathon.client;
 
 import com.example.hackathon.dto.AdvisoryResponse;
 import com.example.hackathon.entity.PlanEntity;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -13,10 +14,10 @@ import java.util.Map;
 public class LlmClient {
     private final RestClient restClient;
 
-    public LlmClient() {
-        // Points to the Python FastAPI LLM service on port 8000
+    // Local dev default: localhost:8000. In Docker/AWS, set LLM_SERVICE_URL=http://ai-service:8000
+    public LlmClient(@Value("${llm.service.url:http://localhost:8000}") String llmServiceUrl) {
         this.restClient = RestClient.builder()
-                .baseUrl("http://localhost:8000")
+                .baseUrl(llmServiceUrl)
                 .build();
     }
 

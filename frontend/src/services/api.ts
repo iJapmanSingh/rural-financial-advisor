@@ -1,6 +1,9 @@
 import { LoanFormInput, PlanEvaluationResult, AiAdvisoryResult, CreditRisk, SchemeDetails } from '../types';
 
-export const API_BASE_URL = 'http://localhost:8080/api';
+// Local dev: talks straight to the local servers.
+// Docker/AWS build: nginx proxies /api -> Spring Boot and /ai -> FastAPI (set in frontend/Dockerfile).
+export const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
+export const AI_BASE_URL: string = import.meta.env.VITE_AI_BASE_URL ?? 'http://localhost:8000';
 
 /**
  * Utility to format numbers into standard Indian Rupee notation (e.g., ₹1,80,000)
@@ -321,7 +324,7 @@ function generateContextualAdvisory(planId: string, input: LoanFormInput, plan?:
 export async function createPlan(data: LoanFormInput): Promise<{ result: PlanEvaluationResult; isLiveApi: boolean }> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     // Map to Spring Boot PlanRequest schema (businessType + location + ownCapital + monthlyIncome)
     const requestPayload = {
@@ -463,7 +466,7 @@ export async function generateAdvisory(
   // 1. Try Spring Boot backend endpoint first
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     const response = await fetch(`${API_BASE_URL}/plans/${encodeURIComponent(planId)}/advisory`, {
       method: 'POST',
@@ -492,7 +495,7 @@ export async function generateAdvisory(
   // 2. Direct fallback to Python FastAPI LLM Service (port 8000)
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     const pyPayload = {
       businessInfo: {
@@ -514,7 +517,7 @@ export async function generateAdvisory(
       }
     };
 
-    const pyResponse = await fetch('http://localhost:8000/v1/advisory', {
+    const pyResponse = await fetch(`${AI_BASE_URL}/v1/advisory`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(pyPayload),
@@ -565,9 +568,9 @@ export async function sendChatMessage(
 ): Promise<{ answer: string; sources?: string[]; isLiveApi: boolean }> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 7000);
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-    const res = await fetch('http://localhost:8000/v1/chat', {
+    const res = await fetch(`${AI_BASE_URL}/v1/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question, ...context }),
@@ -599,7 +602,7 @@ export async function checkServicesHealth(): Promise<{ springBoot: boolean; pyth
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 1200);
-    const res = await fetch('http://localhost:8080/api/plans/health', { signal: controller.signal });
+    const res = await fetch(`${API_BASE_URL}/plans/health`, { signal: controller.signal });
     clearTimeout(timeoutId);
     springBoot = res.ok;
   } catch {}
@@ -607,7 +610,7 @@ export async function checkServicesHealth(): Promise<{ springBoot: boolean; pyth
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 1200);
-    const res = await fetch('http://localhost:8000/health', { signal: controller.signal });
+    const res = await fetch(`${AI_BASE_URL}/health`, { signal: controller.signal });
     clearTimeout(timeoutId);
     pythonLlm = res.ok;
   } catch {}

@@ -281,28 +281,44 @@ class BedrockClient:
         self._bedrock_available = False
         self.client = None
 
+        # Explicit keys are only used when real ones are provided (local dev).
+        # Otherwise boto3's default credential chain is used, which automatically
+        # picks up the IAM role attached to the EC2 instance when deployed on AWS.
+        key_id = settings.AWS_ACCESS_KEY_ID or ""
         has_keys = bool(
-            settings.AWS_ACCESS_KEY_ID
+            key_id
             and settings.AWS_SECRET_ACCESS_KEY
-            and settings.AWS_ACCESS_KEY_ID != "your-aws-access-key-here"
+            and not key_id.lower().startswith("your")
         )
-
-        if not has_keys:
-            logger.warning(
-                "AWS credentials not configured — BedrockClient will use synthetic advisory generator."
-            )
-            return
 
         try:
             import boto3
-            self.client = boto3.client(
-                "bedrock-runtime",
-                region_name=settings.AWS_REGION,
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
-            )
+            from botocore.config import Config
+
+            cfg = Config(read_timeout=120, retries={"max_attempts": 2})
+            if has_keys:
+                self.client = boto3.client(
+                    "bedrock-runtime",
+                    region_name=settings.AWS_REGION,
+                    aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                    config=cfg,
+                )
+            else:
+                session = boto3.Session(region_name=settings.AWS_REGION)
+                if session.get_credentials() is None:
+                    logger.warning(
+                        "No AWS credentials found (no keys, no IAM role) — BedrockClient will use synthetic advisory generator."
+                    )
+                    return
+                self.client = session.client("bedrock-runtime", config=cfg)
+
             self._bedrock_available = True
-            logger.info("AWS Bedrock client initialized successfully.")
+            logger.info(
+                "AWS Bedrock client initialized (%s), model=%s.",
+                "explicit keys" if has_keys else "IAM role / default credential chain",
+                settings.BEDROCK_MODEL_ID,
+            )
         except Exception as e:
             logger.warning(f"Bedrock client init failed — using synthetic mode. Error: {str(e)}")
 
