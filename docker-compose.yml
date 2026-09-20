@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
     environment:
       AWS_REGION: ${AWS_REGION:-ap-south-1}
-      BEDROCK_MODEL_ID: ${BEDROCK_MODEL_ID:-global.anthropic.claude-haiku-4-5-20251001-v1:0}
+      BEDROCK_MODEL_ID: ${BEDROCK_MODEL_ID:-apac.amazon.nova-pro-v1:0}
       ENVIRONMENT: production
       LOG_LEVEL: INFO
       # No AWS keys here on purpose: on EC2 the instance's IAM role provides credentials.

@@ -327,26 +327,17 @@ class BedrockClient:
             logger.info("Bedrock unavailable — generating synthetic advisory.")
             return _generate_synthetic_advisory(system_prompt, user_prompt)
 
-        payload = {
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 5000,
-            "system": system_prompt,
-            "messages": [{"role": "user", "content": user_prompt}],
-            "temperature": 0.25
-        }
-
         try:
             import json
-            from botocore.exceptions import BotoCoreError, ClientError
 
-            response = self.client.invoke_model(
+            # Converse API: one request format for every Bedrock model (Amazon Nova, Claude, ...)
+            response = self.client.converse(
                 modelId=settings.BEDROCK_MODEL_ID,
-                body=json.dumps(payload),
-                contentType="application/json",
-                accept="application/json"
+                system=[{"text": system_prompt}],
+                messages=[{"role": "user", "content": [{"text": user_prompt}]}],
+                inferenceConfig={"maxTokens": 5000, "temperature": 0.25},
             )
-            response_body = json.loads(response.get("body").read().decode("utf-8"))
-            content_text = response_body.get("content", [{}])[0].get("text", "{}")
+            content_text = response["output"]["message"]["content"][0]["text"]
 
             # Clean markdown JSON formatting if present
             cleaned = content_text.strip()
@@ -356,8 +347,13 @@ class BedrockClient:
                 cleaned = cleaned[3:]
             if cleaned.endswith("```"):
                 cleaned = cleaned[:-3]
+            cleaned = cleaned.strip()
+            # Some models add a sentence before/after the JSON - keep only the {...} part
+            start, end = cleaned.find("{"), cleaned.rfind("}")
+            if start != -1 and end > start:
+                cleaned = cleaned[start:end + 1]
 
-            result = json.loads(cleaned.strip())
+            result = json.loads(cleaned)
             logger.info("Bedrock advisory generated successfully.")
             return result
 
@@ -392,24 +388,14 @@ User Question: {question}
 
 Provide a direct, practical, and highly encouraging advisory answer."""
 
-        payload = {
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 1200,
-            "system": system_prompt,
-            "messages": [{"role": "user", "content": user_content}],
-            "temperature": 0.3
-        }
-
         try:
-            import json
-            response = self.client.invoke_model(
+            response = self.client.converse(
                 modelId=settings.BEDROCK_MODEL_ID,
-                body=json.dumps(payload),
-                contentType="application/json",
-                accept="application/json"
+                system=[{"text": system_prompt}],
+                messages=[{"role": "user", "content": [{"text": user_content}]}],
+                inferenceConfig={"maxTokens": 1200, "temperature": 0.3},
             )
-            response_body = json.loads(response.get("body").read().decode("utf-8"))
-            return response_body.get("content", [{}])[0].get("text", "")
+            return response["output"]["message"]["content"][0]["text"]
         except Exception as e:
             logger.warning(f"Bedrock chat invocation failed: {e}. Using synthetic.")
             return _generate_synthetic_chat_answer(question, context)
