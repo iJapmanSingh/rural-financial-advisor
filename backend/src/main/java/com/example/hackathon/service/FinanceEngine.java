@@ -25,7 +25,9 @@ public class FinanceEngine {
         int monthlyIncome = request.getMonthlyIncome();
         String schemeName;
         double annualInterestRate;
-        int tenureMonths = 60;
+        // Tenure comes from the form (1-10 years); default 5 years
+        int tenureYears = request.getTenureYears() != null ? Math.max(1, Math.min(10, request.getTenureYears())) : 5;
+        int tenureMonths = tenureYears * 12;
 
         // 1. Determine Scheme and Interest Rate
         if (ownCapital <= 50000) {
@@ -99,7 +101,9 @@ public class FinanceEngine {
                 approvedLoanAmount,  // Mapped to maxSafeLoanAmount
                 finalEmi,
                 schemeName,
-                riskLevel
+                riskLevel,
+                annualInterestRate,
+                tenureMonths
         );
     }
 

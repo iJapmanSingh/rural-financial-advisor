@@ -33,8 +33,15 @@ export function formatLakhs(amount: number): string {
 /**
  * Determines the best matched government scheme based on capital, location, and project size.
  */
-export function determineGovScheme(projectBudget: number): SchemeDetails {
-  if (projectBudget <= 50000) {
+export function determineGovScheme(
+  projectBudget: number,
+  opts?: { schemeName?: string; socialCategory?: string }
+): SchemeDetails {
+  // Prefer the scheme chosen by the Spring Boot engine so every screen shows the same scheme
+  const backendScheme = opts?.schemeName;
+  const isKishor = backendScheme ? backendScheme.includes('Kishor') : false;
+  const isPmegp = backendScheme ? backendScheme.startsWith('PMEGP') : false;
+  if (!isPmegp && !isKishor && projectBudget <= 50000) {
     return {
       name: 'PM Mudra Yojana (Shishu)',
       badge: 'Zero Collateral',
@@ -46,7 +53,7 @@ export function determineGovScheme(projectBudget: number): SchemeDetails {
       description: 'Zero processing fee, immediate disbursement for micro-scale rural micro-enterprises.',
       portalUrl: 'https://www.mudra.org.in'
     };
-  } else if (projectBudget <= 500000) {
+  } else if (isKishor || (!isPmegp && projectBudget <= 500000)) {
     const subsidy = projectBudget * 0.15;
     return {
       name: 'PM Mudra - Kishor',
@@ -59,7 +66,7 @@ export function determineGovScheme(projectBudget: number): SchemeDetails {
       description: 'Ideal for equipment purchase and working capital. No third-party collateral required under Mudra Credit Guarantee.',
       portalUrl: 'https://www.mudra.org.in'
     };
-  } else if (projectBudget <= 1000000) {
+  } else if (!isPmegp && projectBudget <= 1000000) {
     return {
       name: 'PM Mudra Yojana (Tarun)',
       badge: 'High Growth Micro-Cap',
@@ -72,18 +79,19 @@ export function determineGovScheme(projectBudget: number): SchemeDetails {
       portalUrl: 'https://www.mudra.org.in'
     };
   } else {
-    // Large Rural project
-    const ruralSubsidyRate = 0.35; // 35% margin money for rural special/general
-    const subsidy = Math.min(projectBudget * ruralSubsidyRate, 1750000);
+    // PMEGP rural margin money: 25% General, 35% Special (Women/SC/ST/OBC/NER)
+    const ruralSubsidyRate = opts?.socialCategory?.startsWith('Special') ? 0.35 : 0.25;
+    const subsidyPct = Math.round(ruralSubsidyRate * 100);
+    const subsidy = Math.min(projectBudget * ruralSubsidyRate, 5000000 * ruralSubsidyRate);
     return {
       name: 'PMEGP (Rural)',
-      badge: '35% Rural Subsidy',
-      subsidyPercent: 35,
+      badge: `${subsidyPct}% Rural Subsidy`,
+      subsidyPercent: subsidyPct,
       subsidyAmount: subsidy,
       maxLimit: 5000000,
       collateralFree: projectBudget <= 2500000,
       interestSubvention: 'Margin Money direct capital subsidy credited to bank account after 3-year lock-in.',
-      description: 'Flagship central scheme for rural industrialization and agro-processing. 35% government grant on project cost.',
+      description: 'Flagship central scheme for rural industrialization and agro-processing. ' + subsidyPct + '% government grant on project cost.',
       portalUrl: 'https://www.kviconline.gov.in/pmegpeportal'
     };
   }
@@ -115,7 +123,7 @@ function calculateDeterministicPlan(input: LoanFormInput): PlanEvaluationResult 
   );
 
   const totalSafeProjectBudget = maxSafeLoanAmount + (input.ownCapital || 0);
-  const schemeDetails = determineGovScheme(totalSafeProjectBudget);
+  const schemeDetails = determineGovScheme(totalSafeProjectBudget, { socialCategory: input.socialCategory });
 
   // FOIR & Leverage metrics
   const foirPercent = Math.round((estimatedEmi / input.monthlyIncome) * 100);
@@ -332,7 +340,8 @@ export async function createPlan(data: LoanFormInput): Promise<{ result: PlanEva
       businessType: data.dreamBusiness,
       dreamBusiness: data.dreamBusiness,
       ownCapital: Number(data.ownCapital),
-      monthlyIncome: Number(data.monthlyIncome)
+      monthlyIncome: Number(data.monthlyIncome),
+      tenureYears: data.tenureYears || 5
     };
 
     const response = await fetch(`${API_BASE_URL}/plans`, {
@@ -364,7 +373,7 @@ export async function createPlan(data: LoanFormInput): Promise<{ result: PlanEva
         totalSafeProjectBudget: totalBudget,
         estimatedEmi: emi,
         matchedGovScheme: schemeName,
-        schemeDetails: determineGovScheme(totalBudget),
+        schemeDetails: determineGovScheme(totalBudget, { schemeName, socialCategory: data.socialCategory }),
         creditRisk: riskLevel,
         foirPercent: foir,
         dscr: parseFloat(((data.monthlyIncome * 0.75) / (emi || 1)).toFixed(2)),
@@ -374,8 +383,8 @@ export async function createPlan(data: LoanFormInput): Promise<{ result: PlanEva
           ? `Repayment is at ${foir}% of monthly income. Spring Boot Engine recommends maintaining liquidity reserves.`
           : `High repayment leverage. Project requires additional capital or phased investments.`,
         recommendation: `Sanctioned under ${schemeName}. Priority Sector Lending documentation required.`,
-        calculatedInterestRate: 9.5,
-        tenureMonths: (data.tenureYears || 5) * 12,
+        calculatedInterestRate: Number(liveData.annualInterestRate) || 9.5,
+        tenureMonths: Number(liveData.tenureMonths) || (data.tenureYears || 5) * 12,
         userInput: data,
         createdAt: new Date().toISOString(),
       };

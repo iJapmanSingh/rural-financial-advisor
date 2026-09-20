@@ -9,16 +9,21 @@ public class PlanResponse {
     private int emi;
     private String schemeName;
     private String riskLevel;
+    private double annualInterestRate;
+    private int tenureMonths;
 
     public PlanResponse() {}
 
-    public PlanResponse(UUID id, int totalSafeProjectBudget, int maxSafeLoanAmount, int emi, String schemeName, String riskLevel) {
+    public PlanResponse(UUID id, int totalSafeProjectBudget, int maxSafeLoanAmount, int emi, String schemeName, String riskLevel,
+                        double annualInterestRate, int tenureMonths) {
         this.id = id;
         this.totalSafeProjectBudget = totalSafeProjectBudget;
         this.maxSafeLoanAmount = maxSafeLoanAmount;
         this.emi = emi;
         this.schemeName = schemeName;
         this.riskLevel = riskLevel;
+        this.annualInterestRate = annualInterestRate;
+        this.tenureMonths = tenureMonths;
     }
 
     public UUID getId() { return id; }
@@ -27,4 +32,6 @@ public class PlanResponse {
     public int getEmi() { return emi; }
     public String getSchemeName() { return schemeName; }
     public String getRiskLevel() { return riskLevel; }
+    public double getAnnualInterestRate() { return annualInterestRate; }
+    public int getTenureMonths() { return tenureMonths; }
 }

@@ -5,6 +5,7 @@ public class PlanRequest {
     private int ownCapital;
     private String businessType;
     private int monthlyIncome; // 1. Added this
+    private Integer tenureYears; // optional (1-10), defaults to 5
 
     public PlanRequest() {}
 
@@ -19,4 +20,7 @@ public class PlanRequest {
 
     public int getMonthlyIncome() { return monthlyIncome; }
     public void setMonthlyIncome(int monthlyIncome) { this.monthlyIncome = monthlyIncome; }
+
+    public Integer getTenureYears() { return tenureYears; }
+    public void setTenureYears(Integer tenureYears) { this.tenureYears = tenureYears; }
 }

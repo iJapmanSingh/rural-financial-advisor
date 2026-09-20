@@ -138,7 +138,7 @@ export const ResultsSection: React.FC<ResultsSectionProps> = ({
               {result.foirPercent}%
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Below 50% maximum limit (Safe Range)
+              {result.foirPercent >= 50 ? 'At the 50% FOIR ceiling' : 'Below 50% maximum limit (Safe Range)'}
             </p>
           </div>
 

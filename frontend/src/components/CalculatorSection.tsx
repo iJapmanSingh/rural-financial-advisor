@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Loader2, Info, ChevronRight } from 'lucide-react';
 import { LoanFormInput } from '../types';
 import { formatINR } from '../services/api';
+import { estimateLoanPlan } from '../services/estimate';
 
 interface CalculatorSectionProps {
   onSubmit: (formData: LoanFormInput) => void;
@@ -66,18 +67,8 @@ export const CalculatorSection: React.FC<CalculatorSectionProps> = ({ onSubmit, 
     }
   };
 
-  // Quick client-side conservative approximation for the side preview card
-  const estimatedSafeEmi = Math.round((formData.monthlyIncome || 0) * 0.45);
-  const tenureMonths = (formData.tenureYears || 5) * 12;
-  const rateMonthly = 0.095 / 12;
-  const estimatedSafeLoan = Math.round(
-    (estimatedSafeEmi * (Math.pow(1 + rateMonthly, tenureMonths) - 1)) /
-    (rateMonthly * Math.pow(1 + rateMonthly, tenureMonths))
-  );
-  const totalEstimatedProject = estimatedSafeLoan + (formData.ownCapital || 0);
-  const estimatedScheme = totalEstimatedProject <= 500000 
-    ? 'PM Mudra - Kishor' 
-    : 'PMEGP (Rural MSME)';
+  // Live preview: same rules as the Spring Boot engine, so it matches the final result
+  const estimate = estimateLoanPlan(formData.ownCapital, formData.monthlyIncome, formData.tenureYears || 5);
 
   return (
     <section id="calculator-section" className="bg-gray-50/50 py-14 md:py-18 border-b border-gray-200">
@@ -392,10 +383,10 @@ export const CalculatorSection: React.FC<CalculatorSectionProps> = ({ onSubmit, 
                 Maximum Eligible Loan (Approx.)
               </span>
               <div className="text-2xl font-semibold text-gray-900 font-mono tracking-tight mt-0.5">
-                {formatINR(estimatedSafeLoan)}
+                {formatINR(estimate.maxSafeLoanAmount)}
               </div>
               <div className="flex items-center justify-between text-[11px] text-gray-500 font-mono mt-1 pt-1 border-t border-gray-200">
-                <span>Total Project: {formatINR(totalEstimatedProject)}</span>
+                <span>Total Project: {formatINR(estimate.totalProjectBudget)}</span>
                 <span>Margin: {formatINR(formData.ownCapital)}</span>
               </div>
             </div>
@@ -403,20 +394,24 @@ export const CalculatorSection: React.FC<CalculatorSectionProps> = ({ onSubmit, 
             {/* Key Ratios Table */}
             <div className="space-y-2 text-xs border-b border-gray-200 pb-4 mb-4">
               <div className="flex justify-between py-1 border-b border-gray-100">
-                <span className="text-gray-500">Monthly EMI Ceiling</span>
-                <span className="font-mono font-medium text-gray-900">{formatINR(estimatedSafeEmi)}/mo</span>
+                <span className="text-gray-500">Estimated Monthly EMI</span>
+                <span className="font-mono font-medium text-gray-900">{formatINR(estimate.emi)}/mo</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-gray-100">
+                <span className="text-gray-500">Interest Rate • Tenure</span>
+                <span className="font-mono font-medium text-gray-900">{estimate.annualInterestRate}% p.a. • {estimate.tenureMonths / 12} Years</span>
               </div>
               <div className="flex justify-between py-1 border-b border-gray-100">
                 <span className="text-gray-500">Fixed Obligation (FOIR)</span>
-                <span className="font-mono font-medium text-emerald-700">45% (≤ 50% RBI Cap)</span>
+                <span className="font-mono font-medium text-emerald-700">{estimate.foirPercent}% (≤ 50% RBI Cap)</span>
               </div>
               <div className="flex justify-between py-1 border-b border-gray-100">
                 <span className="text-gray-500">Projected DSCR</span>
-                <span className="font-mono font-medium text-gray-900">1.45x (Healthy)</span>
+                <span className="font-mono font-medium text-gray-900">{estimate.dscr.toFixed(2)}x ({estimate.dscr >= 1.2 ? 'Healthy' : 'Below 1.20x benchmark'})</span>
               </div>
               <div className="flex justify-between py-1">
                 <span className="text-gray-500">Recommended Scheme</span>
-                <span className="font-medium text-gray-900">{estimatedScheme}</span>
+                <span className="font-medium text-gray-900">{estimate.schemeName}</span>
               </div>
             </div>
 
